@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel ONEE 2026</title>
+  
+  <!-- Dependências React, ReactDOM e Babel via CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- O Babel é utilizado aqui para transpilar o código JSX no navegador -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #F5F7FA;
+      font-family: 'Segoe UI', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }
+    * {
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <!-- Elemento onde o React será renderizado -->
+  <div id="root"></div>
+
+  <!-- Código React com JSX (type="text/babel") -->
+  <script type="text/babel">
+    const { useMemo, useState } = React;
+
+    const RAW = [
+      { uf: "AL", estado: "Alagoas", meta: 11884, realizado: 1997 },
+      { uf: "AP", estado: "Amapá", meta: 3596, realizado: 668 },
+      { uf: "GO", estado: "Goiás", meta: 15816, realizado: 2482 },
+      { uf: "MA", estado: "Maranhão", meta: 44858, realizado: 4181 },
+      { uf: "PA", estado: "Pará", meta: 34155, realizado: 1777 },
+      { uf: "PI", estado: "Piauí", meta: 44373, realizado: 8866 },
+      { uf: "RS", estado: "Rio Grande do Sul", meta: 11319, realizado: 2713 },
+    ];
+
+    const fmt = (n) => n.toLocaleString("pt-BR");
+
+    function tier(pct) {
+      if (pct >= 0.2) return { color: "#1E9E6B", label: "Em ritmo" };
+      if (pct >= 0.1) return { color: "#F0A93C", label: "Atenção" };
+      return { color: "#D9534F", label: "Crítico" };
+    }
+
+    function Painel() {
+      const [sortBy, setSortBy] = useState("pct");
+
+      const data = useMemo(() => {
+        const withPct = RAW.map((d) => ({ ...d, pct: d.realizado / d.meta }));
+        const sorted = [...withPct].sort((a, b) => {
+          if (sortBy === "pct") return b.pct - a.pct;
+          if (sortBy === "meta") return b.meta - a.meta;
+          if (sortBy === "realizado") return b.realizado - a.realizado;
+          return a.estado.localeCompare(b.estado);
+        });
+        return sorted;
+      }, [sortBy]);
+
+      const totalMeta = RAW.reduce((s, d) => s + d.meta, 0);
+      const totalReal = RAW.reduce((s, d) => s + d.realizado, 0);
+      const totalPct = totalReal / totalMeta;
+
+      const critico = RAW.filter((d) => d.realizado / d.meta < 0.1).length;
+      const atencao = RAW.filter((d) => {
+        const p = d.realizado / d.meta;
+        return p >= 0.1 && p < 0.2;
+      }).length;
+      const ritmo = RAW.length - critico - atencao;
+
+      return (
+        <div style={{ padding: "28px 20px 48px", color: "#1B2430" }}>
+          <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+            {/* Header */}
+            <div style={{
+                background: "linear-gradient(135deg, #0B3D91 0%, #1665D8 100%)",
+                borderRadius: 16, padding: "22px 28px", color: "white",
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                flexWrap: "wrap", gap: 12
+            }}>
+              <div>
+                <div style={{ fontSize: 11, letterSpacing: 2, opacity: 0.75, fontWeight: 600, textTransform: "uppercase" }}>
+                  ONEE 2026 · Programa de Eficiência Energética
+                </div>
+                <h1 style={{ margin: "4px 0 0", fontSize: 26, fontWeight: 800, letterSpacing: -0.3 }}>
+                  Meta × Realizado de Alunos Inscritos
+                </h1>
+              </div>
+              <div style={{ textAlign: "right", fontSize: 12, opacity: 0.85 }}>
+                <div>Meta: planilha de articuladores estaduais</div>
+                <div>Realizado: painel Power BI — atualizado 05/08/26</div>
+              </div>
+            </div>
+
+            {/* KPIs */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginTop: 18 }}>
+              <KpiCard label="Meta agrupada" value={fmt(totalMeta)} sub="alunos previstos" accent="#0B3D91" />
+              <KpiCard label="Realizado agrupado" value={fmt(totalReal)} sub="alunos cadastrados" accent="#1665D8" />
+              <KpiCard
+                label="% da meta atingida"
+                value={`${(totalPct * 100).toFixed(1)}%`}
+                sub={`faltam ${fmt(totalMeta - totalReal)} cadastros`}
+                accent={tier(totalPct).color}
+              />
+              <KpiCard
+                label="Estados por status"
+                value={`${ritmo} / ${atencao} / ${critico}`}
+                sub="em ritmo / atenção / crítico"
+                accent="#64748B"
+              />
+            </div>
+
+            {/* Legenda de status */}
+            <div style={{ display: "flex", gap: 18, marginTop: 18, marginLeft: 4, fontSize: 12, color: "#475569" }}>
+              <LegendDot color="#1E9E6B" label="Em ritmo (≥20%)" />
+              <LegendDot color="#F0A93C" label="Atenção (10–20%)" />
+              <LegendDot color="#D9534F" label="Crítico (<10%)" />
+            </div>
+
+            {/* Ranking / barras */}
+            <div style={{
+                background: "white", borderRadius: 16, marginTop: 12,
+                padding: "18px 24px 8px", boxShadow: "0 1px 3px rgba(16,24,40,0.06)"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: "#1B2430" }}>
+                  % da meta atingida por estado
+                </h2>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {[
+                    ["pct", "% atingido"],
+                    ["meta", "Meta"],
+                    ["realizado", "Realizado"],
+                    ["estado", "A–Z"],
+                  ].map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => setSortBy(key)}
+                      style={{
+                        fontSize: 11, padding: "5px 10px", borderRadius: 999,
+                        border: "1px solid #E2E8F0",
+                        background: sortBy === key ? "#0B3D91" : "white",
+                        color: sortBy === key ? "white" : "#475569",
+                        cursor: "pointer", fontWeight: 600,
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {data.map((d) => {
+                const t = tier(d.pct);
+                const widthPct = Math.min(d.pct * 100, 100);
+                return (
+                  <div
+                    key={d.uf}
+                    style={{
+                      display: "grid", gridTemplateColumns: "34px 150px 1fr 200px",
+                      alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #F1F5F9"
+                    }}
+                  >
+                    <div style={{
+                        fontSize: 11, fontWeight: 800, color: "white",
+                        background: t.color, borderRadius: 6, textAlign: "center", padding: "3px 0"
+                    }}>
+                      {d.uf}
+                    </div>
+                    <div style={{ fontSize: 13, color: "#334155", fontWeight: 500 }}>{d.estado}</div>
+                    <div style={{
+                        position: "relative", background: "#EEF2F7", borderRadius: 6,
+                        height: 16, overflow: "hidden"
+                    }}>
+                      <div style={{
+                          width: `${widthPct}%`, background: t.color, height: "100%",
+                          borderRadius: 6, transition: "width 0.4s ease"
+                      }} />
+                    </div>
+                    <div style={{
+                        fontSize: 12, color: "#475569", textAlign: "right",
+                        fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap"
+                    }}>
+                      <b style={{ color: "#1B2430" }}>{fmt(d.realizado)}</b> / {fmt(d.meta)}{" "}
+                      <span style={{ color: t.color, fontWeight: 700 }}>
+                        ({(d.pct * 100).toFixed(1)}%)
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 14, textAlign: "center" }}>
+              Fonte: ONEE_2026_Articuladores_v2.xlsx (meta) e painel Power BI ONEE 2026 (realizado).<br/>
+              *Exibindo apenas resultados filtrados (AL, AP, GO, MA, PA, PI, RS).
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function KpiCard({ label, value, sub, accent }) {
+      return (
+        <div style={{
+            background: "white", borderRadius: 14, padding: "16px 18px",
+            boxShadow: "0 1px 3px rgba(16,24,40,0.06)", borderTop: `3px solid ${accent}`
+        }}>
+          <div style={{ fontSize: 11, color: "#64748B", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.4 }}>
+            {label}
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 800, marginTop: 4, color: "#1B2430" }}>{value}</div>
+          <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>{sub}</div>
+        </div>
+      );
+    }
+
+    function LegendDot({ color, label }) {
+      return (
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 9, height: 9, borderRadius: 999, background: color, display: "inline-block" }} />
+          {label}
+        </div>
+      );
+    }
+
+    // Renderiza a aplicação no root
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<Painel />);
+  </script>
+</body>
+</html>
