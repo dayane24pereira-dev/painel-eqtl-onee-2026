@@ -29,7 +29,17 @@
 
   <!-- Código React com JSX (type="text/babel") -->
   <script type="text/babel">
-    const { useMemo, useState } = React;
+    const { useMemo, useState, useEffect } = React;
+
+    function useIsMobile(breakpoint = 640) {
+      const [isMobile, setIsMobile] = useState(window.innerWidth <= breakpoint);
+      useEffect(() => {
+        const onResize = () => setIsMobile(window.innerWidth <= breakpoint);
+        window.addEventListener("resize", onResize);
+        return () => window.removeEventListener("resize", onResize);
+      }, [breakpoint]);
+      return isMobile;
+    }
 
     const RAW = [
       { uf: "AL", estado: "Alagoas", meta: 11884, realizado: 1997 },
@@ -51,6 +61,7 @@
 
     function Painel() {
       const [sortBy, setSortBy] = useState("pct");
+      const isMobile = useIsMobile();
 
       const data = useMemo(() => {
         const withPct = RAW.map((d) => ({ ...d, pct: d.realizado / d.meta }));
@@ -75,24 +86,25 @@
       const ritmo = RAW.length - critico - atencao;
 
       return (
-        <div style={{ padding: "28px 20px 48px", color: "#1B2430" }}>
+        <div style={{ padding: isMobile ? "16px 12px 32px" : "28px 20px 48px", color: "#1B2430" }}>
           <div style={{ maxWidth: 1080, margin: "0 auto" }}>
             {/* Header */}
             <div style={{
                 background: "linear-gradient(135deg, #0B3D91 0%, #1665D8 100%)",
-                borderRadius: 16, padding: "22px 28px", color: "white",
-                display: "flex", justifyContent: "space-between", alignItems: "center",
+                borderRadius: 16, padding: isMobile ? "18px 18px" : "22px 28px", color: "white",
+                display: "flex", justifyContent: "space-between", alignItems: isMobile ? "flex-start" : "center",
+                flexDirection: isMobile ? "column" : "row",
                 flexWrap: "wrap", gap: 12
             }}>
               <div>
                 <div style={{ fontSize: 11, letterSpacing: 2, opacity: 0.75, fontWeight: 600, textTransform: "uppercase" }}>
                   ONEE 2026 · Programa de Eficiência Energética
                 </div>
-                <h1 style={{ margin: "4px 0 0", fontSize: 26, fontWeight: 800, letterSpacing: -0.3 }}>
+                <h1 style={{ margin: "4px 0 0", fontSize: isMobile ? 20 : 26, fontWeight: 800, letterSpacing: -0.3 }}>
                   Meta × Realizado de Alunos Inscritos
                 </h1>
               </div>
-              <div style={{ textAlign: "right", fontSize: 12, opacity: 0.85 }}>
+              <div style={{ textAlign: isMobile ? "left" : "right", fontSize: 12, opacity: 0.85 }}>
                 <div>Meta: planilha de articuladores estaduais</div>
                 <div>Realizado: painel Power BI — atualizado 05/08/26</div>
               </div>
@@ -126,13 +138,16 @@
             {/* Ranking / barras */}
             <div style={{
                 background: "white", borderRadius: 16, marginTop: 12,
-                padding: "18px 24px 8px", boxShadow: "0 1px 3px rgba(16,24,40,0.06)"
+                padding: isMobile ? "16px 14px 6px" : "18px 24px 8px", boxShadow: "0 1px 3px rgba(16,24,40,0.06)"
             }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{
+                  display: "flex", justifyContent: "space-between", alignItems: isMobile ? "flex-start" : "center",
+                  flexDirection: isMobile ? "column" : "row", gap: isMobile ? 10 : 0, marginBottom: 10
+              }}>
                 <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: "#1B2430" }}>
                   % da meta atingida por estado
                 </h2>
-                <div style={{ display: "flex", gap: 6 }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {[
                     ["pct", "% atingido"],
                     ["meta", "Meta"],
@@ -159,6 +174,38 @@
               {data.map((d) => {
                 const t = tier(d.pct);
                 const widthPct = Math.min(d.pct * 100, 100);
+
+                if (isMobile) {
+                  return (
+                    <div key={d.uf} style={{ padding: "10px 0", borderBottom: "1px solid #F1F5F9" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                        <div style={{
+                            fontSize: 11, fontWeight: 800, color: "white",
+                            background: t.color, borderRadius: 6, textAlign: "center", padding: "3px 7px"
+                        }}>
+                          {d.uf}
+                        </div>
+                        <div style={{ fontSize: 13, color: "#334155", fontWeight: 500, flex: 1 }}>{d.estado}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: t.color }}>
+                          {(d.pct * 100).toFixed(1)}%
+                        </div>
+                      </div>
+                      <div style={{
+                          position: "relative", background: "#EEF2F7", borderRadius: 6,
+                          height: 14, overflow: "hidden", marginBottom: 4
+                      }}>
+                        <div style={{
+                            width: `${widthPct}%`, background: t.color, height: "100%",
+                            borderRadius: 6, transition: "width 0.4s ease"
+                        }} />
+                      </div>
+                      <div style={{ fontSize: 11, color: "#94A3B8", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                        <b style={{ color: "#475569" }}>{fmt(d.realizado)}</b> / {fmt(d.meta)}
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div
                     key={d.uf}
